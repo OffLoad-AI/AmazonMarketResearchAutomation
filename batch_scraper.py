@@ -100,7 +100,13 @@ async def send_to_sheet(client: httpx.AsyncClient, data: dict) -> dict:
             content=json.dumps(data),
             timeout=30,
         )
-        return res.json()
+        try:
+            return res.json()
+        except Exception:
+            # 2xx but non-JSON body -> the row was still written; report success.
+            if res.is_success:
+                return {"status": "success", "row": "?"}
+            return {"status": "error", "message": f"HTTP {res.status_code}: {res.text[:200]}"}
     except Exception as e:
         print(f"   ❌ Sheet write failed: {e}")
         return {"status": "error", "message": str(e)}
@@ -200,7 +206,11 @@ async def run(args):
     print(f"📋 Loaded {len(products)} product(s) from {input_path.name}")
 
     ok = failed = 0
-    async with async_playwright() as p, httpx.AsyncClient() as http:
+    # follow_redirects: Apps Script /exec answers a POST with a 302 to
+    # script.googleusercontent.com that serves the real JSON body. Without
+    # this, httpx returns the empty 302 and res.json() fails (the row still
+    # gets written, since doPost already ran).
+    async with async_playwright() as p, httpx.AsyncClient(follow_redirects=True) as http:
         browser = await p.chromium.launch(headless=args.headless)
         context = await browser.new_context(user_agent=USER_AGENT)
         page = await context.new_page()
