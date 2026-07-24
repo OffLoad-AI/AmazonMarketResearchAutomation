@@ -23,7 +23,6 @@ None and the whole stage is skipped cleanly.
 """
 
 import asyncio
-import io
 import json
 import os
 
@@ -33,12 +32,6 @@ try:
     _GENAI_AVAILABLE = True
 except ImportError:
     _GENAI_AVAILABLE = False
-
-try:
-    from PIL import Image
-    _PIL_AVAILABLE = True
-except ImportError:
-    _PIL_AVAILABLE = False
 
 # Model can be pinned via the GEMINI_MODEL env var. The default is the
 # "-latest" alias, which tracks the current Flash model so it doesn't break
@@ -122,22 +115,6 @@ def _pick_flash_model(names):
         if "flash" in n:
             return n
     return names[0] if names else None
-
-
-def _downscale_jpeg(raw, max_side=768, quality=85):
-    """Shrink an image so its longest side <= max_side, re-encoded as JPEG.
-    Keeps the batched call under Gemini's ~20 MB inline cap and cuts tokens.
-    Returns the original bytes unchanged if Pillow is missing or decode fails."""
-    if not _PIL_AVAILABLE:
-        return raw
-    try:
-        im = Image.open(io.BytesIO(raw)).convert("RGB")
-        im.thumbnail((max_side, max_side))
-        out = io.BytesIO()
-        im.save(out, format="JPEG", quality=quality)
-        return out.getvalue()
-    except Exception:
-        return raw
 
 
 async def _generate_json(client, contents):
@@ -251,8 +228,9 @@ async def analyze_packaging_batch(client, http, products):
     if client is None:
         return [None] * len(products)
 
-    # Download + downscale each product's front image. Track which products
-    # actually got an image so we can map Gemini's answers back by number.
+    # Download each product's front image (full resolution — ~350 KB each, so
+    # 20 products stay well under Gemini's ~20 MB inline cap). Track which
+    # products actually got an image so we can map answers back by number.
     sent = []  # list of (original_index, title, jpeg_bytes)
     for idx, prod in enumerate(products):
         urls = prod.get("image_urls") or []
@@ -261,7 +239,7 @@ async def analyze_packaging_batch(client, http, products):
         imgs = await _fetch_images(http, urls[:1])  # front image only
         if not imgs:
             continue
-        sent.append((idx, prod.get("title") or f"Product {idx + 1}", _downscale_jpeg(imgs[0])))
+        sent.append((idx, prod.get("title") or f"Product {idx + 1}", imgs[0]))
 
     results = [dict(_FALLBACK) for _ in products]
     if not sent:

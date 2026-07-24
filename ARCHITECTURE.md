@@ -57,10 +57,10 @@ Why one browser window: search and scrape are two separate HTTP requests, so the
 | **`server.py`** | **v2** FastAPI server. Endpoints `/api/search` (all organic results) and `/api/scrape` (scrape + one batched Gemini call + sheet). Keeps one Chrome window alive across the session; serves `frontend/index.html`. Run with `python server.py`. |
 | **`frontend/index.html`** | **v2** UI — a single self-contained page (inline CSS/JS): search box → checkbox list (≤ 20 cap) → results table. Talks to the server over `fetch`. |
 | **`scrape_logic.js`** | The extension's scraping brain — `scrapeProduct()` plus all its helpers — copied from `content.js` with the extension-only bits removed (the floating button, the webhook URL, `sendToSheet`). Shared by both v1 and v2. |
-| **`gemini_analysis.py`** | The optional AI stage. `analyze_packaging()` (one product, v1) and `analyze_packaging_batch()` (all products in one call, v2); images are downscaled before sending. Reads the API key from `GEMINI_API_KEY`; returns `None`/fallbacks if unavailable. |
+| **`gemini_analysis.py`** | The optional AI stage. `analyze_packaging()` (one product, v1) and `analyze_packaging_batch()` (all products in one call, v2). Reads the API key from `GEMINI_API_KEY`; returns `None`/fallbacks if unavailable. |
 | **`products.csv`** | Your input. A `brand,product_name` header, then one product per row. |
 | **`results.jsonl`** | Local backup, one JSON object per scraped product per line. Git-ignored. |
-| **`requirements.txt`** | Python deps: `playwright`, `httpx`, `google-genai` (+ `fastapi`, `uvicorn`, `pillow` for v2). |
+| **`requirements.txt`** | Python deps: `playwright`, `httpx`, `google-genai` (+ `fastapi`, `uvicorn` for v2). |
 | **`README.md`** | Setup + usage. |
 | **`.gitignore`** | Ignores `venv/`, `results.jsonl`, `__pycache__/`. |
 
@@ -80,7 +80,7 @@ Why one browser window: search and scrape are two separate HTTP requests, so the
 
 - **`get_client()`** — builds a Gemini client from `GEMINI_API_KEY`; returns `None` (stage skipped) if the key or the SDK is missing.
 - **`analyze_packaging()`** — downloads the front product image (the first/main image; count set by `MAX_IMAGES`), sends it + a prompt (JSON response mode), and returns the `ai_*` fields (`ai_packaging_label_style`, `ai_marketing`). Retries on transient `503`s with exponential backoff; on any hard failure returns fallback `"Not Available (AI Error)"` values so the sheet columns still line up.
-- **`analyze_packaging_batch()`** — the v2 path. Downloads and **downscales** each product's front image, then sends them all in **one** call as `PRODUCT <n>: <title>` + image, asking Gemini for a JSON object keyed by product number. Maps each answer back to its product by index; products with no image get fallback values. One request regardless of product count.
+- **`analyze_packaging_batch()`** — the v2 path. Downloads each product's front image (full resolution; ~350 KB each, so 20 stay well under Gemini's ~20 MB inline cap) and sends them all in **one** call as `PRODUCT <n>: <title>` + image, asking Gemini for a JSON object keyed by product number. Maps each answer back to its product by index; products with no image get fallback values. One request regardless of product count.
 - **`_generate_json()`** — the shared call wrapper used by both entry points: `503` retry with backoff, plus the 404 model auto-discovery below.
 - **Model selection** — the model defaults to `gemini-flash-latest` (a `-latest` alias that tracks the current Flash model), overridable via the `GEMINI_MODEL` env var. If the chosen model 404s (e.g. a dated version was retired), `_generate_json()` auto-discovers a valid model via `client.models.list()`, prints the available ones, and retries — caching the working model for the rest of the run.
 
