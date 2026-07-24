@@ -28,7 +28,6 @@ Usage:
 """
 
 import argparse
-import argparse
 import asyncio
 import csv
 import json
@@ -47,7 +46,7 @@ from gemini_analysis import analyze_packaging, get_client
 
 # Google Apps Script web app URL (ends in /exec) — the SAME target sheet
 # the Chrome extension writes to. Paste a new /exec URL here to retarget.
-SHEET_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbx-erpAh3jR-qJ8NEoHfEBO2LBVVQ5s9XIWr6aTjRiQtV9OjYuLJjN-a8anoc7UN5Ka_Q/exec"
+SHEET_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycby5RwIMeYb0lGBIFC-GLaw5cgZU0SZOwfIDtDNGNd5h77s-dOiDO1qb8QjP9P17KU-6/exec"
 
 HERE = Path(__file__).parent
 SCRAPE_LOGIC_JS = HERE / "scrape_logic.js"     # the extension's scraping code
