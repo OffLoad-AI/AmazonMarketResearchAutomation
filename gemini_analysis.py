@@ -6,7 +6,6 @@ Restores the AI stage from the old atta-data-pipeline: fetch a product's
 images and ask Gemini to read the packaging, returning four structured
 fields that get merged into the scraped row before it goes to the sheet:
 
-    ai_packaging_style       — physical material + closure type
     ai_packaging_label_style — design language of the front label
     ai_marketing             — top 3 marketing claims on the front
 
@@ -34,7 +33,6 @@ MAX_RETRIES = 3
 
 # Keys always present on the row so the sheet columns line up even on failure.
 _FALLBACK = {
-    "ai_packaging_style": "Not Available (AI Error)",
     "ai_packaging_label_style": "Not Available (AI Error)",
     "ai_marketing": "Not Available (AI Error)",
 }
@@ -111,7 +109,6 @@ async def analyze_packaging(client, http, brand, product_name, image_urls):
             )
             parsed = json.loads(result.text)
             return {
-                "ai_packaging_style": parsed.get("packaging_style"),
                 "ai_packaging_label_style": parsed.get("packaging_label_style"),
                 "ai_marketing": parsed.get("marketing"),
             }
