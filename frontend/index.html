@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Market Research Automation</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --ink: #16181d; --muted: #6b7280;
+    --line: #e4e6eb; --accent: #ff9900; --accent-ink: #111;
+    --ok: #1a7f37; --warn: #b45309; --err: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--ink);
+  }
+  header {
+    background: #131921; color: #fff; padding: 16px 24px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header .tag { font-size: 12px; color: #ffb84d; border: 1px solid #35507a; padding: 2px 8px; border-radius: 999px; }
+  main { max-width: 1000px; margin: 24px auto; padding: 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  h2 { font-size: 15px; margin: 0 0 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+
+  .search-row { display: flex; gap: 10px; }
+  input[type=text] {
+    flex: 1; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; font-size: 15px;
+  }
+  input[type=text]:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+  button {
+    background: var(--accent); color: var(--accent-ink); border: none; border-radius: 8px;
+    padding: 12px 18px; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.secondary { background: #eef0f3; color: var(--ink); }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 12px; flex-wrap: wrap; }
+  .counter { font-weight: 600; }
+  .counter.over { color: var(--err); }
+  .hint { color: var(--muted); font-size: 13px; }
+
+  ul.products { list-style: none; margin: 0; padding: 0; }
+  ul.products li {
+    display: flex; align-items: flex-start; gap: 12px; padding: 10px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  ul.products li:last-child { border-bottom: none; }
+  ul.products input[type=checkbox] { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--accent); }
+  ul.products a { color: var(--ink); text-decoration: none; }
+  ul.products a:hover { text-decoration: underline; color: #0f5fa8; }
+  ul.products .asin { color: var(--muted); font-size: 12px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+  .badge.ok { background: #e5f5e9; color: var(--ok); }
+  .badge.err { background: #fde8e8; color: var(--err); }
+  .badge.skip { background: #f3f4f6; color: var(--muted); }
+
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #ffffff88;
+    border-top-color: var(--accent-ink); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -3px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status { color: var(--muted); font-size: 14px; margin-top: 10px; }
+  .status.err { color: var(--err); }
+  .hidden { display: none; }
+  .note { background: #fff7e6; border: 1px solid #ffe0a3; color: var(--warn);
+    padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📦 Market Research Automation</h1>
+  <span class="tag">v2</span>
+</header>
+
+<main>
+  <!-- 1. SEARCH -->
+  <section class="card">
+    <h2>1 · Search a category</h2>
+    <div class="search-row">
+      <input id="query" type="text" placeholder='e.g. "ragi atta"' autocomplete="off">
+      <button id="searchBtn">Search Amazon</button>
+    </div>
+    <div id="searchStatus" class="status"></div>
+  </section>
+
+  <!-- 2. FILTER -->
+  <section id="filterCard" class="card hidden">
+    <h2>2 · Pick products to scrape</h2>
+    <div class="note" id="capNote"></div>
+    <div class="toolbar">
+      <div>
+        <button class="secondary" id="selectAll">Select first <span id="capLabel">20</span></button>
+        <button class="secondary" id="clearAll">Clear all</button>
+      </div>
+      <div class="counter" id="counter">0 selected</div>
+    </div>
+    <ul class="products" id="productList"></ul>
+    <div class="toolbar" style="margin-top:16px;">
+      <span class="hint">Only organic (non-sponsored) results. Uncheck anything off-topic.</span>
+      <button id="scrapeBtn" disabled>Scrape &amp; send to sheet</button>
+    </div>
+    <div id="scrapeStatus" class="status"></div>
+  </section>
+
+  <!-- 3. RESULTS -->
+  <section id="resultsCard" class="card hidden">
+    <h2>3 · Results</h2>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Product</th><th class="num">Price</th><th class="num">Units</th>
+            <th class="num">Cum. revenue</th><th>Pack sizes</th><th>Marketing (AI)</th><th>Sheet</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let CAP = 20;
+let currentQuery = "";
+
+async function postJSON(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+
+function selectedCheckboxes() {
+  return [...document.querySelectorAll("#productList input[type=checkbox]:checked")];
+}
+
+function updateCounter() {
+  const n = selectedCheckboxes().length;
+  const c = $("counter");
+  c.textContent = `${n} / ${CAP} selected`;
+  const over = n > CAP;
+  c.classList.toggle("over", over);
+  $("scrapeBtn").disabled = (n === 0 || over);
+}
+
+// --- 1. SEARCH ---
+async function doSearch() {
+  const q = $("query").value.trim();
+  if (!q) return;
+  currentQuery = q;
+  $("searchBtn").disabled = true;
+  $("searchStatus").className = "status";
+  $("searchStatus").innerHTML = `<span class="spinner"></span> Searching Amazon… (watch the Chrome window; solve a CAPTCHA if it appears)`;
+  $("filterCard").classList.add("hidden");
+  $("resultsCard").classList.add("hidden");
+  try {
+    const data = await postJSON("/api/search", { query: q });
+    CAP = data.cap || 20;
+    renderProducts(data.products || []);
+    $("searchStatus").textContent = `Found ${data.products.length} organic result(s).`;
+  } catch (e) {
+    $("searchStatus").className = "status err";
+    $("searchStatus").textContent = "Search failed: " + e.message;
+  } finally {
+    $("searchBtn").disabled = false;
+  }
+}
+
+function renderProducts(products) {
+  const list = $("productList");
+  list.innerHTML = "";
+  $("capLabel").textContent = CAP;
+  products.forEach((p, i) => {
+    const li = document.createElement("li");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = i < CAP;            // default: first CAP checked
+    cb.dataset.title = p.title;
+    cb.dataset.url = p.url;
+    cb.addEventListener("change", updateCounter);
+    const label = document.createElement("div");
+    label.innerHTML = `<a href="${p.url}" target="_blank" rel="noopener">${escapeHtml(p.title)}</a>
+                       <div class="asin">${p.asin || ""}</div>`;
+    li.append(cb, label);
+    list.appendChild(li);
+  });
+  $("capNote").textContent = products.length > CAP
+    ? `${products.length} results found — at most ${CAP} can be scraped. The first ${CAP} are pre-selected.`
+    : `${products.length} results found. All pre-selected.`;
+  $("filterCard").classList.remove("hidden");
+  updateCounter();
+}
+
+// --- 2. FILTER controls ---
+$("selectAll").addEventListener("click", () => {
+  document.querySelectorAll("#productList input[type=checkbox]").forEach((cb, i) => cb.checked = i < CAP);
+  updateCounter();
+});
+$("clearAll").addEventListener("click", () => {
+  document.querySelectorAll("#productList input[type=checkbox]").forEach(cb => cb.checked = false);
+  updateCounter();
+});
+
+// --- 3. SCRAPE ---
+async function doScrape() {
+  const boxes = selectedCheckboxes();
+  const products = boxes.map(cb => ({ title: cb.dataset.title, url: cb.dataset.url }));
+  $("scrapeBtn").disabled = true;
+  $("scrapeStatus").className = "status";
+  $("scrapeStatus").innerHTML = `<span class="spinner"></span> Scraping ${products.length} product(s), then one Gemini call for all images… this can take a few minutes.`;
+  try {
+    const data = await postJSON("/api/scrape", { query: currentQuery, products });
+    renderResults(data.results || []);
+    $("scrapeStatus").textContent = `Done — ${data.results.length} product(s) processed.`;
+  } catch (e) {
+    $("scrapeStatus").className = "status err";
+    $("scrapeStatus").textContent = "Scrape failed: " + e.message;
+  } finally {
+    updateCounter();
+  }
+}
+
+function sheetBadge(status, row) {
+  if (status === "success") return `<span class="badge ok">row ${row ?? "✓"}</span>`;
+  if (status === "skipped") return `<span class="badge skip">skipped</span>`;
+  return `<span class="badge err">${status || "error"}</span>`;
+}
+
+function renderResults(results) {
+  const body = $("resultsBody");
+  body.innerHTML = "";
+  for (const r of results) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><a href="${r.product_url}" target="_blank" rel="noopener">${escapeHtml(r.title || "")}</a></td>
+      <td class="num">${fmtNum(r.selling_price)}</td>
+      <td class="num">${fmtNum(r.units_sold)}</td>
+      <td class="num">${fmtNum(r.cumulative_revenue)}</td>
+      <td>${escapeHtml(r.pack_sizes || "")}</td>
+      <td>${escapeHtml(r.ai_marketing || "")}</td>
+      <td>${sheetBadge(r.sheet_status, r.sheet_row)}</td>`;
+    body.appendChild(tr);
+  }
+  $("resultsCard").classList.remove("hidden");
+}
+
+function fmtNum(n) {
+  if (n === null || n === undefined || n === "") return "—";
+  const v = Number(n);
+  return isNaN(v) ? n : v.toLocaleString("en-IN");
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+$("searchBtn").addEventListener("click", doSearch);
+$("query").addEventListener("keydown", e => { if (e.key === "Enter") doSearch(); });
+$("scrapeBtn").addEventListener("click", doScrape);
+</script>
+</body>
+</html>

@@ -6,6 +6,13 @@ It automates Amazon-India market research. You give it a list of products (brand
 
 It's the **batch-processing** descendant of the original `atta-data-pipeline`, but rebuilt to use the **exact scraping and sheet-sending logic of the `amazonScraperExtension` Chrome extension** — which had become the more advanced of the two.
 
+### Two ways to run it
+
+- **v1 — CLI batch** (`batch_scraper.py`): reads a `products.csv` of brand + name rows, scrapes each, one Gemini call *per product*.
+- **v2 — interactive web tool** (`server.py` + `frontend/`): you type a **category** (e.g. "ragi atta"), it shows every organic result so you can filter down to ≤ 20, scrapes them, and makes **one batched Gemini call for all of them**. Same scraping engine and same sheet under the hood.
+
+Both share `scrape_logic.js` (the scraping engine) and `gemini_analysis.py` (the AI stage) — v2 imports v1's helpers directly, so there's no duplicated scraping code.
+
 ## The core idea (and why it matters)
 
 There were two earlier tools that scraped the same Amazon pages two different ways:
@@ -17,7 +24,7 @@ The problem: those two scraping implementations **drifted apart**. The extension
 
 **This tool's key design decision:** instead of re-porting the extension's JavaScript to Python *again* (which would just recreate the drift), it **injects the extension's actual JavaScript into the live Amazon page and runs it** via Playwright. Same code → identical results, permanently. The only Python-side logic is the part the extension doesn't have: driving the batch (search + click first organic) and sending to the sheet.
 
-## Architecture / data flow
+## v1 architecture / data flow (CLI)
 
 For each `brand, product_name` row in `products.csv`:
 
@@ -29,16 +36,31 @@ For each `brand, product_name` row in `products.csv`:
 6. **Back up locally** — appends the row to `results.jsonl` *before* the sheet write, so a scrape is never lost.
 7. **Send to sheet** — Python POSTs the row to the Google Apps Script web app (the same webhook the extension uses), which appends it to your Google Sheet.
 
+## v2 architecture / data flow (web tool)
+
+A **local** FastAPI app (`server.py`) serving a single-page frontend (`frontend/index.html`). It keeps **one long-lived Chrome window** alive across the whole session (so search and scrape share a browser), guarded by a lock since it's a single-user tool. Three phases:
+
+1. **Search** — `POST /api/search {query}` searches Amazon and returns **every organic (non-sponsored) result on page 1** as `{title, url, asin}` (collected via one in-page JS pass, `_COLLECT_JS`).
+2. **Filter** — the browser lists those titles with checkboxes; you uncheck anything off-topic. A hard cap of **20** products is enforced both in the UI and again server-side.
+3. **Scrape → batch-analyze → sheet** — `POST /api/scrape {query, products}`:
+   - Each selected product is scraped with the **same** `scrape_logic.js` injection as v1 (reusing v1's `scrape_product`-style helpers).
+   - **One** Gemini call (`analyze_packaging_batch`) sends **all** products' front images together and gets back every analysis keyed by product number — so a run costs exactly **one** request no matter how many products, staying well under the free-tier daily limit.
+   - Each row is backed up to `results.jsonl` and POSTed to the same Google Sheet webhook.
+
+Why one browser window: search and scrape are two separate HTTP requests, so the browser must persist between them; the FastAPI `lifespan` launches it on startup and closes it on shutdown. CAPTCHAs are solved by hand in that visible window, exactly like v1.
+
 ## The files
 
 | File | What it does |
 |------|--------------|
-| **`batch_scraper.py`** | The driver / entry point. Reads the CSV, runs the browser, does search + click-first-organic, injects the JS, scrapes image URLs, calls the Gemini stage, sends rows to the sheet, writes the local backup. All config lives at the top. |
-| **`scrape_logic.js`** | The extension's scraping brain — `scrapeProduct()` plus all its helpers — copied from `content.js` with the extension-only bits removed (the floating button, the webhook URL, `sendToSheet`). This is what actually reads the page. |
-| **`gemini_analysis.py`** | The optional AI stage. Downloads the product images and asks Gemini to read the packaging, returning the `ai_*` fields. Reads the API key from `GEMINI_API_KEY`; returns `None`/fallbacks if unavailable. |
+| **`batch_scraper.py`** | **v1** driver / entry point. Reads the CSV, runs the browser, does search + click-first-organic, injects the JS, scrapes image URLs, calls the Gemini stage, sends rows to the sheet, writes the local backup. All config lives at the top; v2 imports its helpers. |
+| **`server.py`** | **v2** FastAPI server. Endpoints `/api/search` (all organic results) and `/api/scrape` (scrape + one batched Gemini call + sheet). Keeps one Chrome window alive across the session; serves `frontend/index.html`. Run with `python server.py`. |
+| **`frontend/index.html`** | **v2** UI — a single self-contained page (inline CSS/JS): search box → checkbox list (≤ 20 cap) → results table. Talks to the server over `fetch`. |
+| **`scrape_logic.js`** | The extension's scraping brain — `scrapeProduct()` plus all its helpers — copied from `content.js` with the extension-only bits removed (the floating button, the webhook URL, `sendToSheet`). Shared by both v1 and v2. |
+| **`gemini_analysis.py`** | The optional AI stage. `analyze_packaging()` (one product, v1) and `analyze_packaging_batch()` (all products in one call, v2); images are downscaled before sending. Reads the API key from `GEMINI_API_KEY`; returns `None`/fallbacks if unavailable. |
 | **`products.csv`** | Your input. A `brand,product_name` header, then one product per row. |
 | **`results.jsonl`** | Local backup, one JSON object per scraped product per line. Git-ignored. |
-| **`requirements.txt`** | Python deps: `playwright`, `httpx`, `google-genai`. |
+| **`requirements.txt`** | Python deps: `playwright`, `httpx`, `google-genai` (+ `fastapi`, `uvicorn`, `pillow` for v2). |
 | **`README.md`** | Setup + usage. |
 | **`.gitignore`** | Ignores `venv/`, `results.jsonl`, `__pycache__/`. |
 
@@ -57,14 +79,16 @@ For each `brand, product_name` row in `products.csv`:
 ### `gemini_analysis.py`
 
 - **`get_client()`** — builds a Gemini client from `GEMINI_API_KEY`; returns `None` (stage skipped) if the key or the SDK is missing.
-- **`analyze_packaging()`** — downloads up to 3 product images, sends them + a prompt (JSON response mode), and returns the `ai_*` fields (`ai_packaging_label_style`, `ai_marketing`). Retries on transient `503`s with exponential backoff; on any hard failure returns fallback `"Not Available (AI Error)"` values so the sheet columns still line up.
-- **Model selection** — the model defaults to `gemini-flash-latest` (a `-latest` alias that tracks the current Flash model), overridable via the `GEMINI_MODEL` env var. If the chosen model 404s (e.g. a dated version was retired), `analyze_packaging()` auto-discovers a valid model via `client.models.list()`, prints the available ones, and retries — caching the working model for the rest of the batch.
+- **`analyze_packaging()`** — downloads the front product image (the first/main image; count set by `MAX_IMAGES`), sends it + a prompt (JSON response mode), and returns the `ai_*` fields (`ai_packaging_label_style`, `ai_marketing`). Retries on transient `503`s with exponential backoff; on any hard failure returns fallback `"Not Available (AI Error)"` values so the sheet columns still line up.
+- **`analyze_packaging_batch()`** — the v2 path. Downloads and **downscales** each product's front image, then sends them all in **one** call as `PRODUCT <n>: <title>` + image, asking Gemini for a JSON object keyed by product number. Maps each answer back to its product by index; products with no image get fallback values. One request regardless of product count.
+- **`_generate_json()`** — the shared call wrapper used by both entry points: `503` retry with backoff, plus the 404 model auto-discovery below.
+- **Model selection** — the model defaults to `gemini-flash-latest` (a `-latest` alias that tracks the current Flash model), overridable via the `GEMINI_MODEL` env var. If the chosen model 404s (e.g. a dated version was retired), `_generate_json()` auto-discovers a valid model via `client.models.list()`, prints the available ones, and retries — caching the working model for the rest of the run.
 
 ### What each row contains (the fields per product)
 
 From `scrapeProduct()`: `title`, `net_quantity_raw`, `reference_size`, `selling_price`, `mrp`, `units_sold`, `price_per_unit` (+ raw), `rating`, `review_count`, `cumulative_revenue`, `units_sold_ratio`, `pack_sizes`, `customers_say_summary`, `aspects` (sentiment tags with mention counts), `ingredients`, `listing_date`, `product_url`, plus a `_variants_debug` breakdown.
 
-The Python driver adds: `image_urls`, `input_brand` / `input_product_name` (ties the row back to your input), and — when Gemini is on — `ai_packaging_label_style`, `ai_marketing`.
+The Python driver adds: `image_urls`, `input_brand` / `input_product_name` (ties the row back to your input; in v2 these carry the search query), and — when Gemini is on — `ai_packaging_label_style`, `ai_marketing`. v2 also adds `input_query`.
 
 Three of these are the "smart"/derived fields worth knowing:
 
@@ -74,6 +98,16 @@ Three of these are the "smart"/derived fields worth knowing:
 
 ## How to run it
 
+**v2 — web tool (recommended):**
+```bash
+cd finalMarketResearch_Automation
+source venv/bin/activate
+export GEMINI_API_KEY="your-key"  # optional — enables the Gemini stage
+python server.py                  # then open http://127.0.0.1:8000
+```
+A Chrome window opens (solve any CAPTCHA there). Type a category, filter to ≤ 20 products, click "Scrape & send to sheet".
+
+**v1 — CLI batch:**
 ```bash
 cd finalMarketResearch_Automation
 source venv/bin/activate          # venv already created, deps installed

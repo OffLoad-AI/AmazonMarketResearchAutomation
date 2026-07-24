@@ -1,13 +1,30 @@
 # Final Market Research Automation
 
-Batch Amazon-India product scraper that writes to a Google Sheet.
+Amazon-India product scraper that writes to a Google Sheet. Two ways to run it:
 
-This is the **batch-processing model** of the original `atta-data-pipeline`
-(open a real Chrome window, search a product, click the first organic result,
-scrape it) — but wired to the **latest scraping and data-sending logic from the
-`amazonScraperExtension` Chrome extension**.
+- **v2 — web tool** (`server.py`): type a **category** ("ragi atta"), pick which of
+  the organic results to keep (≤ 20), scrape them, and make **one** batched Gemini
+  call for all of them. Recommended.
+- **v1 — CLI batch** (`batch_scraper.py`): scrape a `products.csv` of brand + name
+  rows, one Gemini call per product.
 
-## How it works
+Both use the **latest scraping and data-sending logic from the
+`amazonScraperExtension` Chrome extension** (via `scrape_logic.js`).
+
+## Quick start (v2 web tool)
+
+```bash
+cd finalMarketResearch_Automation
+source venv/bin/activate
+export GEMINI_API_KEY="your-key"   # optional — enables Gemini packaging analysis
+python server.py                   # opens a Chrome window; visit http://127.0.0.1:8000
+```
+
+Type a category → uncheck off-topic products (max 20) → **Scrape & send to sheet**.
+Solve any Amazon CAPTCHA in the Chrome window if it appears. See
+[ARCHITECTURE.md](ARCHITECTURE.md) for the full design.
+
+## How the v1 CLI works
 
 For each `brand, product_name` row in `products.csv`:
 
@@ -84,9 +101,11 @@ CAPTCHA, and the script pauses for you to solve it by hand before continuing.
 
 | File | Purpose |
 |------|---------|
-| `batch_scraper.py`   | Batch driver: reads CSV, searches, clicks, injects JS, runs Gemini, sends to sheet |
-| `scrape_logic.js`    | The extension's scraping logic (`scrapeProduct` + helpers) |
-| `gemini_analysis.py` | Optional AI stage: images → Gemini → `ai_*` packaging fields |
-| `products.csv`       | Input list of products to scrape |
+| `server.py`          | **v2** web server (FastAPI): search → filter → scrape → batched Gemini → sheet |
+| `frontend/index.html`| **v2** UI: search box, checkbox filter (≤ 20), results table |
+| `batch_scraper.py`   | **v1** CLI: reads CSV, searches, clicks, injects JS, runs Gemini, sends to sheet |
+| `scrape_logic.js`    | The extension's scraping logic (`scrapeProduct` + helpers), shared by v1 & v2 |
+| `gemini_analysis.py` | AI stage: single (`analyze_packaging`) and batched (`analyze_packaging_batch`) |
+| `products.csv`       | v1 input list of products to scrape |
 | `results.jsonl`      | Local backup of scraped rows (git-ignored) |
 | `requirements.txt`   | Python dependencies |

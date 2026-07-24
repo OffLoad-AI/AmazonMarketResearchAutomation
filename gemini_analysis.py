@@ -2,12 +2,18 @@
 Gemini packaging analysis
 =========================
 
-Restores the AI stage from the old atta-data-pipeline: fetch a product's
-images and ask Gemini to read the packaging, returning four structured
-fields that get merged into the scraped row before it goes to the sheet:
+Fetch a product's front image and ask Gemini to read the packaging,
+returning fields that get merged into the scraped row before it goes to
+the sheet:
 
     ai_packaging_label_style — design language of the front label
     ai_marketing             — top 3 marketing claims on the front
+
+Two entry points:
+  - analyze_packaging()       — one product per call  (used by the v1 CLI)
+  - analyze_packaging_batch() — ALL products in ONE call (used by the v2
+                                server) so a run stays within the free-tier
+                                daily request limit regardless of count.
 
 The Gemini API key is read from the GEMINI_API_KEY environment variable —
 never hardcoded. If the key (or the SDK) is missing, get_client() returns
@@ -17,6 +23,7 @@ None and the whole stage is skipped cleanly.
 """
 
 import asyncio
+import io
 import json
 import os
 
@@ -27,12 +34,20 @@ try:
 except ImportError:
     _GENAI_AVAILABLE = False
 
+try:
+    from PIL import Image
+    _PIL_AVAILABLE = True
+except ImportError:
+    _PIL_AVAILABLE = False
+
 # Model can be pinned via the GEMINI_MODEL env var. The default is the
 # "-latest" alias, which tracks the current Flash model so it doesn't break
 # when a specific dated version (e.g. gemini-2.5-flash) is retired. If even
 # this 404s, analyze_packaging() auto-discovers a valid model from the API.
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
-MAX_IMAGES = 3
+# Only the front image (Amazon's first/main image) is sent to Gemini.
+# image_urls is already in page order, so image_urls[:MAX_IMAGES] takes the front.
+MAX_IMAGES = 1
 MAX_RETRIES = 3
 
 # Remembers whatever model actually worked (or was auto-picked) so the batch
@@ -109,11 +124,78 @@ def _pick_flash_model(names):
     return names[0] if names else None
 
 
+def _downscale_jpeg(raw, max_side=768, quality=85):
+    """Shrink an image so its longest side <= max_side, re-encoded as JPEG.
+    Keeps the batched call under Gemini's ~20 MB inline cap and cuts tokens.
+    Returns the original bytes unchanged if Pillow is missing or decode fails."""
+    if not _PIL_AVAILABLE:
+        return raw
+    try:
+        im = Image.open(io.BytesIO(raw)).convert("RGB")
+        im.thumbnail((max_side, max_side))
+        out = io.BytesIO()
+        im.save(out, format="JPEG", quality=quality)
+        return out.getvalue()
+    except Exception:
+        return raw
+
+
+async def _generate_json(client, contents):
+    """One generate_content call returning parsed JSON.
+
+    Handles transient 503s (exponential backoff) and a retired model (404 ->
+    auto-discover a valid model via the API, retry, and cache it). Raises on
+    unrecoverable failure so the caller can apply its own fallback.
+    """
+    global _resolved_model
+    model = _resolved_model or GEMINI_MODEL
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            # generate_content is blocking; keep the event loop free.
+            result = await asyncio.to_thread(
+                client.models.generate_content,
+                model=model,
+                contents=contents,
+                config=types.GenerateContentConfig(response_mime_type="application/json"),
+            )
+            _resolved_model = model  # remember what worked for the rest of the run
+            return json.loads(result.text)
+        except Exception as e:
+            msg = str(e)
+            low = msg.lower()
+            print(f"   🔥 Gemini error ({model}): {msg[:150]}")
+
+            # Model missing/retired -> discover a valid one and retry with it.
+            if "404" in msg or "not found" in low or "not available" in low:
+                available = _list_generate_models(client)
+                new_model = _pick_flash_model(available)
+                if new_model and new_model != model:
+                    print(f"   🔁 Switching model to '{new_model}' "
+                          f"(pin it via GEMINI_MODEL to skip this).")
+                    if available:
+                        print(f"      Available: {', '.join(available[:12])}")
+                    model = new_model
+                    continue
+                raise
+
+            # Transient overload -> exponential backoff, then retry.
+            if "503" in msg and attempt < MAX_RETRIES - 1:
+                wait = 2 ** attempt
+                print(f"   ⏳ Server busy, retrying in {wait}s "
+                      f"(attempt {attempt + 1}/{MAX_RETRIES})...")
+                await asyncio.sleep(wait)
+                continue
+            raise
+
+    raise RuntimeError("Gemini call exhausted retries")
+
+
 async def analyze_packaging(client, http, brand, product_name, image_urls):
     """
-    Fetch the product's images and ask Gemini to read the packaging.
-    Returns the four ai_* fields (fallback values on any failure), or None
-    if Gemini is disabled (client is None) so the caller can skip merging.
+    Single-product analysis (used by the CLI batch tool). Fetches the front
+    image and asks Gemini to read the packaging. Returns the ai_* fields
+    (fallback values on failure), or None if Gemini is disabled.
     """
     if client is None:
         return None
@@ -130,52 +212,80 @@ async def analyze_packaging(client, http, brand, product_name, image_urls):
     contents = [prompt] + [
         types.Part.from_bytes(data=b, mime_type="image/jpeg") for b in images
     ]
+    try:
+        parsed = await _generate_json(client, contents)
+        return {
+            "ai_packaging_label_style": parsed.get("packaging_label_style"),
+            "ai_marketing": parsed.get("marketing"),
+        }
+    except Exception:
+        print("   ⚠️ Gemini failed — writing fallback AI fields.")
+        return dict(_FALLBACK)
 
-    global _resolved_model
-    model = _resolved_model or GEMINI_MODEL
 
-    for attempt in range(MAX_RETRIES):
-        try:
-            # generate_content is blocking; keep the event loop free.
-            result = await asyncio.to_thread(
-                client.models.generate_content,
-                model=model,
-                contents=contents,
-                config=types.GenerateContentConfig(response_mime_type="application/json"),
-            )
-            parsed = json.loads(result.text)
-            _resolved_model = model  # remember what worked for the rest of the batch
-            return {
-                "ai_packaging_label_style": parsed.get("packaging_label_style"),
-                "ai_marketing": parsed.get("marketing"),
-            }
-        except Exception as e:
-            msg = str(e)
-            print(f"   🔥 Gemini error ({model}): {msg[:150]}")
+_BATCH_PROMPT = """
+You are given {n} products. For each, there is a line "PRODUCT <number>: <title>"
+immediately followed by that product's front-of-pack image.
 
-            # Model missing/retired -> discover a valid one and retry with it.
-            low = msg.lower()
-            if "404" in msg or "not found" in low or "not available" in low:
-                available = _list_generate_models(client)
-                new_model = _pick_flash_model(available)
-                if new_model and new_model != model:
-                    print(f"   🔁 Switching model to '{new_model}' "
-                          f"(pin it via GEMINI_MODEL to skip this).")
-                    if available:
-                        print(f"      Available: {', '.join(available[:12])}")
-                    model = new_model
-                    continue
-                if available:
-                    print(f"   ⚠️ No usable model found. Available: {', '.join(available[:12])}")
-                print("   ⚠️ Gemini failed — writing fallback AI fields.")
-                return dict(_FALLBACK)
+Return ONLY a valid JSON object whose keys are the product numbers as strings.
+Each value must be an object with EXACTLY these keys:
+- "packaging_label_style": (String) Describe the design language/style/philosophy of the front label.
+- "marketing": (String) Comma-separated list of the top 3 marketing claims ranked by impact/boldness/uniqueness printed on the front.
 
-            # Transient overload -> exponential backoff, then retry.
-            if "503" in msg and attempt < MAX_RETRIES - 1:
-                wait = 2 ** attempt
-                print(f"   ⏳ Server busy, retrying in {wait}s "
-                      f"(attempt {attempt + 1}/{MAX_RETRIES})...")
-                await asyncio.sleep(wait)
-                continue
-            print("   ⚠️ Gemini failed — writing fallback AI fields.")
-            return dict(_FALLBACK)
+Example shape: {{"1": {{"packaging_label_style": "...", "marketing": "..."}}, "2": {{...}}}}
+Include an entry for every product number from 1 to {n}.
+"""
+
+
+async def analyze_packaging_batch(client, http, products):
+    """
+    Analyze ALL products' front images in a SINGLE Gemini call.
+
+    products: list of dicts, each with at least "title" and "image_urls".
+    Returns a list aligned 1:1 with `products`; each item is the ai_* dict
+    (or fallback). Returns a list of None if Gemini is disabled.
+
+    One call regardless of product count -> stays within the free-tier
+    daily request limit no matter how many products are selected.
+    """
+    if client is None:
+        return [None] * len(products)
+
+    # Download + downscale each product's front image. Track which products
+    # actually got an image so we can map Gemini's answers back by number.
+    sent = []  # list of (original_index, title, jpeg_bytes)
+    for idx, prod in enumerate(products):
+        urls = prod.get("image_urls") or []
+        if not urls:
+            continue
+        imgs = await _fetch_images(http, urls[:1])  # front image only
+        if not imgs:
+            continue
+        sent.append((idx, prod.get("title") or f"Product {idx + 1}", _downscale_jpeg(imgs[0])))
+
+    results = [dict(_FALLBACK) for _ in products]
+    if not sent:
+        print("   ⚠️ No downloadable images across products — skipping Gemini.")
+        return results
+
+    # Build one contents payload: prompt, then (label, image) per product.
+    contents = [_BATCH_PROMPT.format(n=len(sent))]
+    for number, (_, title, jpeg) in enumerate(sent, start=1):
+        contents.append(f"PRODUCT {number}: {title}")
+        contents.append(types.Part.from_bytes(data=jpeg, mime_type="image/jpeg"))
+
+    print(f"   🧠 One Gemini call for {len(sent)} product image(s)...")
+    try:
+        parsed = await _generate_json(client, contents)
+    except Exception:
+        print("   ⚠️ Gemini batch failed — writing fallback AI fields for all.")
+        return results
+
+    # Map "1".."M" answers back to the original product indices.
+    for number, (orig_idx, _, _) in enumerate(sent, start=1):
+        entry = parsed.get(str(number)) or parsed.get(number) or {}
+        results[orig_idx] = {
+            "ai_packaging_label_style": entry.get("packaging_label_style") if entry else _FALLBACK["ai_packaging_label_style"],
+            "ai_marketing": entry.get("marketing") if entry else _FALLBACK["ai_marketing"],
+        }
+    return results
