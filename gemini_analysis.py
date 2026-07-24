@@ -6,7 +6,6 @@ Restores the AI stage from the old atta-data-pipeline: fetch a product's
 images and ask Gemini to read the packaging, returning four structured
 fields that get merged into the scraped row before it goes to the sheet:
 
-    ai_ingredients          — ingredients text read off the back label
     ai_packaging_style       — physical material + closure type
     ai_packaging_label_style — design language of the front label
     ai_marketing             — top 3 marketing claims on the front
@@ -35,7 +34,6 @@ MAX_RETRIES = 3
 
 # Keys always present on the row so the sheet columns line up even on failure.
 _FALLBACK = {
-    "ai_ingredients": "Not Available (AI Error)",
     "ai_packaging_style": "Not Available (AI Error)",
     "ai_packaging_label_style": "Not Available (AI Error)",
     "ai_marketing": "Not Available (AI Error)",
@@ -44,7 +42,6 @@ _FALLBACK = {
 _PROMPT = """
 Analyze the product packaging for {brand} {product_name}.
 Return a valid JSON object with EXACTLY these keys:
-- "ingredients": (String) Just copy paste everything written after the ingredients: on the back package label. If entirely obscured, just mention whatever you can deduce and mention (obscured) at the start of string.
 - "packaging_style": (String) Describe the physical material and closure type (e.g., 'Matte Plastic Pouch', 'Cardboard Box').
 - "packaging_label_style": (String) Describe the design language/style/philosophy of the front label.
 - "marketing": (String) Comma-separated list of the top 3 marketing claims ranked according to their impact/boldness/uniqueness printed on the front.
@@ -114,7 +111,6 @@ async def analyze_packaging(client, http, brand, product_name, image_urls):
             )
             parsed = json.loads(result.text)
             return {
-                "ai_ingredients": parsed.get("ingredients"),
                 "ai_packaging_style": parsed.get("packaging_style"),
                 "ai_packaging_label_style": parsed.get("packaging_label_style"),
                 "ai_marketing": parsed.get("marketing"),
