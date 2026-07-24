@@ -10,9 +10,11 @@ Flow, for every {brand, product_name} row in products.csv:
     2. Click the first ORGANIC (non-ad) result
     3. Inject scrape_logic.js (the extension's scrapeProduct) into the
        live product page and run it  -> identical to the Chrome extension
-    4. POST the scraped row to the Google Apps Script web app
+    4. (optional) Gemini reads the product images and adds ai_* packaging
+       fields (see gemini_analysis.py) — needs GEMINI_API_KEY in the env
+    5. POST the scraped row to the Google Apps Script web app
        (same webhook the extension uses) -> lands in the Google Sheet
-    5. Append the row to results.jsonl locally as a backup
+    6. Append the row to results.jsonl locally as a backup
 
 Because the scraping runs the extension's own JS in-page, the batch tool
 and the extension always produce the same data for the same page.
@@ -21,18 +23,23 @@ Usage:
     python batch_scraper.py                # scrape everything in products.csv
     python batch_scraper.py --input my.csv # a different input file
     python batch_scraper.py --no-sheet     # scrape + save locally, don't POST
+    python batch_scraper.py --no-gemini    # skip the Gemini packaging analysis
     python batch_scraper.py --headless     # run without a visible window
 """
 
 import argparse
+import argparse
 import asyncio
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 
 import httpx
 from playwright.async_api import async_playwright
+
+from gemini_analysis import analyze_packaging, get_client
 
 # ================================================================
 # CONFIG
@@ -154,6 +161,29 @@ async def scroll_to_load_lazy_sections(page):
         pass
 
 
+# Hi-res product images live in the page source as "hiRes":"...jpg" (large as fallback).
+# Scraped here in Python — rather than in scrape_logic.js — so that file stays a
+# faithful mirror of the extension (which has no image/AI stage).
+_IMG_HIRES = re.compile(r'"hiRes":"(https://m\.media-amazon\.com/images/I/[^"]+\.jpg)"')
+_IMG_LARGE = re.compile(r'"large":"(https://m\.media-amazon\.com/images/I/[^"]+\.jpg)"')
+
+
+async def extract_image_urls(page, limit=3):
+    """Up to `limit` de-duped hi-res product image URLs from the page source."""
+    try:
+        content = await page.content()
+    except Exception:
+        return []
+    matches = _IMG_HIRES.findall(content) or _IMG_LARGE.findall(content)
+    urls = []
+    for u in matches:
+        if u not in urls:
+            urls.append(u)
+        if len(urls) >= limit:
+            break
+    return urls
+
+
 async def scrape_one(page, scrape_js: str, brand: str, product_name: str):
     """Search -> open first organic result -> run the extension's scrapeProduct()."""
     search_query = f"{brand} {product_name}".strip()
@@ -189,6 +219,10 @@ async def scrape_one(page, scrape_js: str, brand: str, product_name: str):
     await scroll_to_load_lazy_sections(page)
     print("📦 Scraping (extension logic + variant units)...")
     data = await page.evaluate(f"async () => {{ {scrape_js}\n return await scrapeProduct(); }}")
+
+    # Image URLs (for the Gemini packaging analysis) — scraped Python-side.
+    if data is not None:
+        data["image_urls"] = await extract_image_urls(page)
     return data
 
 
@@ -204,6 +238,11 @@ async def run(args):
 
     scrape_js = SCRAPE_LOGIC_JS.read_text(encoding="utf-8")
     print(f"📋 Loaded {len(products)} product(s) from {input_path.name}")
+
+    # Gemini packaging analysis — enabled only if not disabled AND a key is set.
+    gemini_client = None if args.no_gemini else get_client()
+    if gemini_client:
+        print("🧠 Gemini packaging analysis: ON")
 
     ok = failed = 0
     # follow_redirects: Apps Script /exec answers a POST with a 302 to
@@ -236,6 +275,17 @@ async def run(args):
             print(f"      price={data.get('selling_price')}  units={data.get('units_sold')}  "
                   f"revenue={data.get('cumulative_revenue')}  sizes={data.get('pack_sizes')}")
 
+            # Gemini packaging analysis (adds ai_* fields), if enabled.
+            if gemini_client is not None:
+                print("   🧠 Analyzing packaging with Gemini...")
+                ai = await analyze_packaging(
+                    gemini_client, http, prod["brand"], prod["product_name"],
+                    data.get("image_urls", []),
+                )
+                if ai:
+                    data.update(ai)
+                    print(f"      ai_marketing={str(ai.get('ai_marketing'))[:60]}")
+
             # Local backup first (never lose a scrape if the sheet is down).
             with RESULTS_FILE.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(data, ensure_ascii=False) + "\n")
@@ -265,6 +315,7 @@ def main():
     parser.add_argument("--input", help="CSV of products (default: products.csv)")
     parser.add_argument("--headless", action="store_true", help="Run without a visible browser window")
     parser.add_argument("--no-sheet", action="store_true", help="Scrape + save locally, skip the sheet POST")
+    parser.add_argument("--no-gemini", action="store_true", help="Skip the Gemini packaging analysis")
     args = parser.parse_args()
     asyncio.run(run(args))
 

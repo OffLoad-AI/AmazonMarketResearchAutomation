@@ -15,9 +15,12 @@ For each `brand, product_name` row in `products.csv`:
 2. Click the **first organic (non-sponsored)** search result.
 3. Inject [`scrape_logic.js`](scrape_logic.js) — the extension's own
    `scrapeProduct()` — into the live product page and run it.
-4. POST the scraped row to the Google Apps Script web app (the same sheet the
+4. *(optional)* Send the product images to **Gemini** to read the packaging and
+   add `ai_*` fields (ingredients, packaging style, label style, marketing) —
+   see [`gemini_analysis.py`](gemini_analysis.py). Needs `GEMINI_API_KEY`.
+5. POST the scraped row to the Google Apps Script web app (the same sheet the
    extension writes to).
-5. Append the row to `results.jsonl` as a local backup.
+6. Append the row to `results.jsonl` as a local backup.
 
 ### Why inject the extension's JS instead of re-porting to Python?
 
@@ -50,13 +53,21 @@ playwright install chromium
 - **Target sheet** — set `SHEET_WEBHOOK_URL` near the top of
   [`batch_scraper.py`](batch_scraper.py) to your Apps Script `/exec` URL. It is
   currently the same sheet the extension uses.
+- **Gemini (optional)** — export your key to enable the packaging analysis:
+  ```bash
+  export GEMINI_API_KEY="your-key"
+  ```
+  Without it (or with `--no-gemini`), the AI stage is skipped cleanly. If you
+  want the `ai_*` fields to land in the sheet, add matching columns/handling in
+  your Apps Script.
 
 ## Run
 
 ```bash
-python batch_scraper.py               # scrape everything in products.csv -> sheet
+python batch_scraper.py               # scrape products.csv (+ Gemini) -> sheet
 python batch_scraper.py --input x.csv # use a different input file
 python batch_scraper.py --no-sheet    # scrape + save locally, skip the sheet POST
+python batch_scraper.py --no-gemini   # skip the Gemini packaging analysis
 python batch_scraper.py --headless    # no visible browser window
 ```
 
@@ -73,8 +84,9 @@ CAPTCHA, and the script pauses for you to solve it by hand before continuing.
 
 | File | Purpose |
 |------|---------|
-| `batch_scraper.py` | Batch driver: reads CSV, searches, clicks, injects JS, sends to sheet |
-| `scrape_logic.js`  | The extension's scraping logic (`scrapeProduct` + helpers) |
-| `products.csv`     | Input list of products to scrape |
-| `results.jsonl`    | Local backup of scraped rows (git-ignored) |
-| `requirements.txt` | Python dependencies |
+| `batch_scraper.py`   | Batch driver: reads CSV, searches, clicks, injects JS, runs Gemini, sends to sheet |
+| `scrape_logic.js`    | The extension's scraping logic (`scrapeProduct` + helpers) |
+| `gemini_analysis.py` | Optional AI stage: images → Gemini → `ai_*` packaging fields |
+| `products.csv`       | Input list of products to scrape |
+| `results.jsonl`      | Local backup of scraped rows (git-ignored) |
+| `requirements.txt`   | Python dependencies |
