@@ -1,0 +1,166 @@
+{
+  "executive_summary": {
+    "headline": "The Amazon India ragi flour category generates an estimated Rs 2.85M monthly, dominated by volume leaders Aashirvaad and Vedaka in the mainstream tier, and high-margin niche sprouted products at the top end.",
+    "category_shape": "Prices range from Rs 90/kg to Rs 872/kg. Revenue is highly concentrated, with the top three brands capturing 49.4% of total category monthly revenue. Category differentiation relies on organic certification, sprouted processing, and soft roti functional claims.",
+    "key_findings": [
+      "Amazon Brand - Vedaka and Aashirvaad lead unit sales with an estimated 5,000 and 4,000 units monthly, priced at Rs 105/kg and Rs 111/kg respectively.",
+      "Two Brothers Organic Farms commands an ultra-premium price of Rs 872/kg for sprouted ragi malt, generating Rs 436,000 monthly on just 1,000 estimated units.",
+      "Jiwa achieves 1,000 estimated units sold but experiences high product defect feedback, recording 116 mixed taste reviews and 26 reviews citing strange or burnt aromas.",
+      "24 Mantra Organic generates Rs 249,000 monthly across 3,000 units but receives negative review tags specifically highlighting coarse grain and gravel-like particles."
+    ],
+    "recommended_actions": [
+      "Launch a 1kg SKU priced between Rs 110 and Rs 120/kg to compete directly in the mainstream high-volume cluster alongside Vedaka and Aashirvaad.",
+      "Formulate for fine-mesh texture and soft roti yield to directly address taste and coarse grit complaints present in Jiwa and 24 Mantra Organic.",
+      "Develop a secondary sprouted ragi SKU priced at Rs 400-500/kg to capture high-margin sprouted demand while undercutting Two Brothers Organic Farms (Rs 872/kg)."
+    ]
+  },
+  "price_quality_map": {
+    "clusters": [
+      {
+        "name": "Value / Mainstream Tier",
+        "price_per_kg_range": "Rs 90 - Rs 129/kg",
+        "rating_range": "4.2 - 4.5",
+        "members": [
+          "Parrot Ragi Atta",
+          "Amazon Brand - Vedaka Ragi Flour (Nachni Atta)",
+          "Better Nutrition Biofortified Ragi Atta 1kg",
+          "Aashirvaad Nature’s Superfoods Ragi Flour",
+          "NutriOrganics Unpolished Ragi Flour",
+          "Pure & Sure Organic Ragi Flour 1 kg",
+          "Jiwa 30 Degree Ragi Flour / Atta"
+        ],
+        "read": "Captures the majority of unit volume by offering everyday staple pricing for 1kg packs."
+      },
+      {
+        "name": "Mid-Tier / Standard Organic",
+        "price_per_kg_range": "Rs 144 - Rs 199/kg",
+        "rating_range": "3.7 - 4.4",
+        "members": [
+          "True Story Organic Ragi Flour",
+          "TWF Ragi Flour",
+          "Farm Veda Ragi Atta- 5 Kg",
+          "Tata Sampann",
+          "Pure & Sure Organic Ragi Flour 500 G",
+          "24 Mantra Organic Ragi Flour/Finger Millet/Nachni Flour - 500gms",
+          "Organic Tattva Ragi Flour 500g",
+          "Pansari 100% Natural Ragi Atta 500gm – Gluten-Free Ragi Flour",
+          "ROSIER Ragi Atta 1kg"
+        ],
+        "read": "Relies on organic certifications, 500g convenience packaging, or specific grinding claims at moderate price markups."
+      },
+      {
+        "name": "Ultra-Premium / Sprouted Niche",
+        "price_per_kg_range": "Rs 400 - Rs 872/kg",
+        "rating_range": "4.0 - 4.5",
+        "members": [
+          "Praakritik Organic Sprouted Ragi Atta Flour 500g",
+          "Naturalist Sprouted Ragi Flour (Madua/Nachni aata) - 1Kg",
+          "TWO BROTHERS ORGANIC FARMS Sprouted Ragi Malt Nachni Satva (500 g)",
+          "The Millet Company Sprouted Ragi Flour"
+        ],
+        "read": "Generates substantial revenue per unit by offering sprouted ragi formulations and targeting infant or health-focused usage."
+      }
+    ],
+    "anomalies": [
+      "ROSIER is priced at Rs 199/kg but has the category's lowest rating of 3.7 across 24 reviews, making it mispriced against 24 Mantra Organic (4.4 rating at Rs 166/kg).",
+      "The Millet Company lists a selling price of Rs 165 for a 250g pack (equivalent to Rs 660/kg), but contains a data reporting anomaly with price_per_kg listed as Rs 165,000."
+    ]
+  },
+  "revenue_concentration": {
+    "narrative": "Total estimated monthly category revenue across reporting brands is Rs 2,846,950. Category revenue is concentrated, with the top three products (Vedaka, Aashirvaad, and Two Brothers) generating Rs 1,405,000, representing 49.4% of estimated category revenue.",
+    "top_players": [
+      {
+        "brand": "Amazon Brand - Vedaka Ragi Flour (Nachni Atta)",
+        "monthly_revenue_estimate": 525000,
+        "read": "Leads the category in revenue and unit volume (5,000 units) due to competitive Rs 105/kg pricing."
+      },
+      {
+        "brand": "Aashirvaad Nature’s Superfoods Ragi Flour",
+        "monthly_revenue_estimate": 444000,
+        "read": "Achieves high monthly volume (4,000 units) at Rs 111/kg leveraging mainstream brand trust."
+      },
+      {
+        "brand": "TWO BROTHERS ORGANIC FARMS Sprouted Ragi Malt Nachni Satva (500 g)",
+        "monthly_revenue_estimate": 436000,
+        "read": "Matches high-volume brands in total revenue despite lower volume (1,000 units) via ultra-premium pricing (Rs 872/kg)."
+      },
+      {
+        "brand": "Tata Sampann",
+        "monthly_revenue_estimate": 300000,
+        "read": "Sells 4,000 units in a 500g format (Rs 150/kg equivalent) backed by easy-knead roti functional claims."
+      }
+    ],
+    "long_tail_note": "Ten products generate less than Rs 100,000 in monthly revenue each, constrained by smaller 500g pack formats, lack of revenue data, or premium pricing without brand equity."
+  },
+  "voice_of_customer": {
+    "category_praise": [
+      {
+        "theme": "Overall Flour Quality and Authenticity",
+        "read": "Customers reward genuine taste and purity, yielding high positive review tags for Jiwa (220), Pure & Sure (88), 24 Mantra (83), TWF (80), Aashirvaad (64), and Vedaka (60)."
+      },
+      {
+        "theme": "Texture and Soft Roti Performance",
+        "read": "Flours that produce smooth, soft rotis receive positive feedback, as seen in TWF (15 positive texture tags, soft roti mention)."
+      }
+    ],
+    "category_complaints": [
+      {
+        "theme": "Unpleasant Aroma and Strange Processing Taste",
+        "evidence": "Jiwa recorded 116 mixed taste tags, 26 mixed aroma tags, and 22 mixed texture tags, with reviewers noting burnt smells and chewy texture.",
+        "read": "Cold-pressed or specialty thermal milling techniques risk adverse flavor and aroma feedback if not executed properly."
+      },
+      {
+        "theme": "Coarse Texture and Gravel Particles",
+        "evidence": "24 Mantra Organic received 6 negative tags specifically noting coarse texture and small gravel-like particles.",
+        "read": "Inadequate sifting and coarse milling disrupt regular cooking use for everyday consumers."
+      }
+    ],
+    "unmet_needs": [
+      "Fine-milled ragi flour at a mainstream price point that explicitly guarantees a grit-free texture and neutral aroma."
+    ],
+    "coverage_note": "13 of 20 products contained review summaries and tag counts; 7 products (ROSIER, Farm Veda, Praakritik, Parrot, True Story, The Millet Company, Pansari) lacked review summary data."
+  },
+  "positioning_whitespace": {
+    "occupied_territories": [
+      {
+        "aesthetic": "Earthy Village and Heritage Illustration",
+        "brands": [
+          "Amazon Brand - Vedaka Ragi Flour (Nachni Atta)",
+          "ROSIER Ragi Atta 1kg",
+          "Farm Veda Ragi Atta- 5 Kg",
+          "TWO BROTHERS ORGANIC FARMS Sprouted Ragi Malt Nachni Satva (500 g)"
+        ],
+        "price_tier": "Spans Value (Rs 105/kg) to Ultra-Premium (Rs 872/kg)"
+      },
+      {
+        "aesthetic": "Kraft-Paper Eco Aesthetic",
+        "brands": [
+          "Organic Tattva Ragi Flour 500g",
+          "24 Mantra Organic Ragi Flour/Finger Millet/Nachni Flour - 500gms",
+          "Praakritik Organic Sprouted Ragi Atta Flour 500g"
+        ],
+        "price_tier": "Mid-Tier to Ultra-Premium (Rs 166/kg - Rs 400/kg)"
+      },
+      {
+        "aesthetic": "Vibrant Commercial Branding",
+        "brands": [
+          "Aashirvaad Nature’s Superfoods Ragi Flour",
+          "Tata Sampann"
+        ],
+        "price_tier": "Mainstream / Value (Rs 111/kg - Rs 150/kg)"
+      }
+    ],
+    "gaps": [
+      "Clean, modern health-functional aesthetic (blue/white or minimalist clinical styling) in the Rs 110-140/kg mainstream price tier, currently only utilized by high-end or niche products like TWF (Rs 144.5/kg) and Better Nutrition (Rs 109/kg)."
+    ],
+    "read": "A new brand can stand out in mainstream retail by adopting a crisp, modern functional health design rather than crowded traditional village or brown kraft paper motifs."
+  },
+  "data_caveats": [
+    "3 of 20 products (Naturalist Sprouted Ragi Flour, Parrot Ragi Atta, Pansari) lack monthly unit and revenue estimates.",
+    "1 product (Parrot Ragi Atta) lacks rating and review count data entirely.",
+    "7 products lack review summaries and tagged review metrics.",
+    "Monthly unit and revenue figures are directional Amazon estimates rather than audited financial data.",
+    "Data reflects a single static snapshot captured on 2026-07-25 with no historical time-series data.",
+    "The Millet Company record contains an input data error in the price_per_kg field (listed as Rs 165,000)."
+  ]
+}

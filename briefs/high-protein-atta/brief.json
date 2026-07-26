@@ -1,0 +1,144 @@
+{
+  "executive_summary": {
+    "headline": "Right Shift captures an estimated Rs 10,42,000 of the tracked Rs 14,58,200 monthly category revenue by pricing below Rs 90/kg, while products priced over Rs 400/kg show low unit volume.",
+    "category_shape": "Category pricing spans from Rs 72/kg to Rs 1099/kg across 15 products. Revenue is highly concentrated, with Right Shift holding 71.5% of estimated monthly sales across two SKUs. Out of 15 listings, 9 have no estimated sales volume data available.",
+    "key_findings": [
+      "Right Shift commands Rs 10,42,000 in combined estimated monthly sales across its 5kg (Rs 89.8/kg) and 1kg (Rs 72/kg) SKUs.",
+      "Ultra-premium products priced above Rs 400/kg, such as Lo Low Carb (Rs 499/kg) and The Lean Co. (Rs 513.7/kg), record lower monthly revenues of Rs 49,900 and Rs 124,900, alongside mixed consumer feedback on value for money.",
+      "9 of the 15 tracked products carry no estimated sales volume or revenue figures in the dataset.",
+      "Review feedback across 6 analyzed products shows consistent praise for soft texture and taste, while price resistance appears on SKUs priced above Rs 400/kg."
+    ],
+    "recommended_actions": [
+      "Position a new entrant in the mid-premium price band between Rs 180/kg and Rs 250/kg, sitting between Right Shift (Rs 72-89.8/kg) and ultra-premium brands (Rs 400+/kg).",
+      "Offer both 1kg and 5kg pack sizes at launch; the 5kg pack size accounts for Rs 8,98,000 of Right Shift's sales versus Rs 1,44,000 for its 1kg pack.",
+      "Formulate specifically for soft roti texture and taste to mitigate the 'value for money' negative tags observed in premium competitors like Lo Low Carb (8 mixed tags)."
+    ]
+  },
+  "price_quality_map": {
+    "clusters": [
+      {
+        "name": "Value / Commercial",
+        "price_per_kg_range": "Rs 72 - 148/kg",
+        "rating_range": "3.9 - 4.3",
+        "members": [
+          "Right Shift High Protein Multigrain+ Atta",
+          "Protein Chef High Protein Sharbati Atta 5 KG",
+          "Manna High Protein Multigrain Atta Low GI Sugar Control with 21g Protein"
+        ],
+        "read": "Captures high sales volume through mass pricing despite lower average ratings (3.9 to 4.3)."
+      },
+      {
+        "name": "Mid-Premium / Specialty",
+        "price_per_kg_range": "Rs 227 - 349/kg",
+        "rating_range": "4.2 - 5.0",
+        "members": [
+          "Two Brothers Organic Farms - Khapli Protein Atta (5kg)",
+          "TWF High Protein Flour 1kg",
+          "Arvita High Protein Whole Wheat Multigrain Atta",
+          "FROM FARM Protein Aata 1kg",
+          "Anveshan High Protein Atta 1 KG"
+        ],
+        "read": "Achieves high customer ratings (4.2 to 5.0) using heritage wheat strains like Khapli and clean protein claims."
+      },
+      {
+        "name": "Ultra-Premium / Specialized Diets",
+        "price_per_kg_range": "Rs 399 - 1099/kg",
+        "rating_range": "4.2 - 5.0",
+        "members": [
+          "Maadico High Protein Aata 1kg",
+          "Lo Low Carb Delights - High Protein Flour",
+          "The Lean Co.® High Protein Flour 1.75 kg",
+          "Nutribarn Ultra High Protein Low Carb Atta 1 Kg",
+          "ZAP MEALS Atta Protein Plant-Based High Protein & Fiber Blend"
+        ],
+        "read": "Commands high unit prices but experiences lower sales volume and mixed value sentiment in reviews."
+      }
+    ],
+    "anomalies": [
+      "Right Shift 5kg achieves Rs 8,98,000 in estimated monthly revenue with a 3.9 rating, indicating demand is strongly driven by its lower price of Rs 89.8/kg.",
+      "Lo Low Carb holds 456 reviews with a 4.2 rating but records an estimated monthly revenue of only Rs 49,900 at Rs 499/kg."
+    ]
+  },
+  "revenue_concentration": {
+    "narrative": "Estimated category revenue is concentrated in one major brand. Right Shift accounts for Rs 10,42,000 of the total Rs 14,58,200 estimated monthly revenue across the 6 products reporting sales data.",
+    "top_players": [
+      {
+        "brand": "Right Shift High Protein Multigrain+ Atta",
+        "monthly_revenue_estimate": 1042000,
+        "read": "Combines Rs 8,98,000 from its 5kg pack and Rs 1,44,000 from its 1kg pack through commercial value pricing."
+      },
+      {
+        "brand": "Two Brothers Organic Farms - Khapli Protein Atta (5kg)",
+        "monthly_revenue_estimate": 176400,
+        "read": "Generates volume using organic Khapli wheat positioning at Rs 227/kg."
+      },
+      {
+        "brand": "The Lean Co.® High Protein Flour 1.75 kg",
+        "monthly_revenue_estimate": 124900,
+        "read": "Captures sales at Rs 513.7/kg driven by its high protein claim (51g per 100g)."
+      }
+    ],
+    "long_tail_note": "9 of 15 products have no estimated sales figures, while Manna (Rs 65,000) and Lo Low Carb (Rs 49,900) form a small secondary tier."
+  },
+  "voice_of_customer": {
+    "category_praise": [
+      {
+        "theme": "Roti Texture and Taste",
+        "read": "Customers praise flours that maintain soft roti texture and acceptable taste, highlighted in reviews for Right Shift 1kg, TWF, Lo Low Carb, Manna, and Two Brothers."
+      },
+      {
+        "theme": "Health and Diabetic Management",
+        "read": "Low GI and sugar control claims receive direct praise in reviews for Manna and Right Shift."
+      }
+    ],
+    "category_complaints": [
+      {
+        "theme": "High Price Concerns",
+        "evidence": "The Lean Co. (6 mixed value tags) and Lo Low Carb (8 mixed value tags).",
+        "read": "Products priced near or above Rs 500/kg encounter customer pushback regarding value for money."
+      }
+    ],
+    "unmet_needs": [],
+    "coverage_note": "6 of 15 products contained review summaries and tag breakdowns; 2 products had 0 reviews, and 7 had reviews without text summaries."
+  },
+  "positioning_whitespace": {
+    "occupied_territories": [
+      {
+        "aesthetic": "Commercial brand color-blocks",
+        "brands": [
+          "Right Shift High Protein Multigrain+ Atta"
+        ],
+        "price_tier": "Value / Commercial (Rs 72 - 89.8/kg)"
+      },
+      {
+        "aesthetic": "Artisanal, kraft-paper, or rustic farm imagery",
+        "brands": [
+          "Two Brothers Organic Farms - Khapli Protein Atta (5kg)",
+          "Dr. Attawaali Khapli High Protein Atta 1kg",
+          "FROM FARM Protein Aata 1kg"
+        ],
+        "price_tier": "Mid-Premium (Rs 227 - 300/kg)"
+      },
+      {
+        "aesthetic": "Clinical or fitness-focused high-contrast packaging",
+        "brands": [
+          "The Lean Co.® High Protein Flour 1.75 kg",
+          "Maadico High Protein Aata 1kg",
+          "Lo Low Carb Delights - High Protein Flour"
+        ],
+        "price_tier": "Ultra-Premium (Rs 399 - 513.7/kg)"
+      }
+    ],
+    "gaps": [
+      "Clean-label daily wellness packaging in the Rs 150 - 220/kg price range, bridging the gap between low-cost commercial packs and high-cost clinical fitness pouches."
+    ],
+    "read": "An entrant priced between Rs 180/kg and Rs 220/kg with clean lifestyle branding can avoid direct price competition with Right Shift without triggering the price sensitivity seen above Rs 400/kg."
+  },
+  "data_caveats": [
+    "Revenue and units figures are Amazon estimates for 2026-07-25, not audited sales numbers.",
+    "9 of 15 products lack estimated unit sales and monthly revenue data.",
+    "Review summaries and tag counts are available for only 6 of the 15 listings.",
+    "This dataset is a single point-in-time snapshot and contains no historical or trend data.",
+    "Price per kg was missing in the raw data for Dr. Attawaali Khapli High Protein Atta."
+  ]
+}

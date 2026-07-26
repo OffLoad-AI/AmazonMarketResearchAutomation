@@ -8,8 +8,11 @@ Interactive flow instead of a products.csv:
     1. POST /api/search  {query}            -> all organic page-1 results
     2. (user filters in the browser, <= 20)
     3. POST /api/scrape  {query, products}  -> scrape each, ONE batched Gemini
-                                               call for all front images, then
-                                               push every row to the Google Sheet
+                                               call for all front images, push
+                                               every row to the Google Sheet,
+                                               then ONE more Gemini call that
+                                               synthesizes the founder brief
+                                               and renders it to HTML
 
 It reuses v1's helpers (scrape_logic.js injection, image scraping, sheet POST)
 by importing them from batch_scraper, so both tools scrape identically.
@@ -19,12 +22,19 @@ Run it (a real Chrome window opens — solve any CAPTCHA there):
     source venv/bin/activate
     export GEMINI_API_KEY="your-key"     # optional
     python server.py                     # then open http://127.0.0.1:8000
+
+Env flags:
+    HEADLESS=1    hide the browser window (can't solve CAPTCHAs then)
+    NO_GEMINI=1   skip both AI stages entirely
+    NO_BRIEF=1    keep packaging analysis, skip the brief synthesis
 """
 
 import asyncio
 import json
 import os
+import re                                                        # ← NEW
 from contextlib import asynccontextmanager
+from datetime import date                                        # ← NEW
 from pathlib import Path
 
 import httpx
@@ -45,10 +55,17 @@ from batch_scraper import (
     send_to_sheet,
 )
 from gemini_analysis import get_client, analyze_packaging_batch
+from synthesis import synthesize_brief, build_records            # ← NEW
+from render import render_brief                                  # ← NEW
 
 HERE = Path(__file__).parent
 FRONTEND = HERE / "frontend"
+BRIEFS_DIR = HERE / "briefs"                                     # ← NEW
 MAX_PRODUCTS = 20  # hard cap on how many products go forward to scraping
+
+
+def slugify(s):                                                  # ← NEW
+    return re.sub(r"[^a-z0-9]+", "-", str(s).lower()).strip("-") or "run"
 
 
 # ================================================================
@@ -139,6 +156,7 @@ class ProductRef(BaseModel):
 class ScrapeRequest(BaseModel):
     query: str
     products: list[ProductRef]
+    client_brand: str | None = None                              # ← NEW
 
 
 @asynccontextmanager
@@ -154,6 +172,7 @@ async def lifespan(app: FastAPI):
     app.state.http = httpx.AsyncClient(follow_redirects=True)
     app.state.scrape_js = SCRAPE_LOGIC_JS.read_text(encoding="utf-8")
     app.state.gemini = None if os.environ.get("NO_GEMINI") else get_client()
+    BRIEFS_DIR.mkdir(exist_ok=True)                              # ← NEW
     print("✅ Server ready — open http://127.0.0.1:8000")
     try:
         yield
@@ -169,6 +188,15 @@ app = FastAPI(title="Market Research Automation v2", lifespan=lifespan)
 @app.get("/")
 async def index():
     return FileResponse(FRONTEND / "index.html")
+
+
+@app.get("/briefs/{slug}/brief.html")                            # ← NEW
+async def get_brief(slug: str):
+    """Serve a generated brief. slug is sanitized, so no path traversal."""
+    path = BRIEFS_DIR / slugify(slug) / "brief.html"
+    if not path.exists():
+        return {"error": "Brief not found."}
+    return FileResponse(path)
 
 
 @app.post("/api/search")
@@ -189,6 +217,7 @@ async def api_scrape(req: ScrapeRequest, request: Request):
     st = request.app.state
     selected = req.products[:MAX_PRODUCTS]  # enforce the cap server-side too
     scraped = []
+    results = []
 
     async with st.lock:
         for i, p in enumerate(selected, 1):
@@ -214,7 +243,6 @@ async def api_scrape(req: ScrapeRequest, request: Request):
                     d.update(a)
 
         # Backup locally, then push each row to the sheet.
-        results = []
         for d in scraped:
             with RESULTS_FILE.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(d, ensure_ascii=False) + "\n")
@@ -233,8 +261,38 @@ async def api_scrape(req: ScrapeRequest, request: Request):
                 "sheet_row": sheet.get("row"),
             })
 
+    # ------------------------------------------------------------------
+    # BRIEF — outside the browser lock (needs no browser), and entirely   ← NEW
+    # non-fatal: if it fails, the scrape and sheet write already stand.
+    # ------------------------------------------------------------------
+    brief_url = None
+    if scraped and st.gemini is not None and not os.environ.get("NO_BRIEF"):
+        try:
+            brief = await synthesize_brief(
+                st.gemini, scraped,
+                category=req.query,
+                client_brand=req.client_brand,
+                run_date=date.today().isoformat(),
+            )
+            if brief:
+                slug = slugify(req.query)
+                out_dir = BRIEFS_DIR / slug
+                out_dir.mkdir(parents=True, exist_ok=True)
+                (out_dir / "brief.json").write_text(
+                    json.dumps(brief, ensure_ascii=False, indent=2), encoding="utf-8")
+                (out_dir / "brief.html").write_text(
+                    render_brief(brief, build_records(scraped),
+                                 category=req.query,
+                                 client_brand=req.client_brand,
+                                 run_date=date.today().isoformat()),
+                    encoding="utf-8")
+                brief_url = f"/briefs/{slug}/brief.html"
+                print(f"   📄 Brief: http://127.0.0.1:8000{brief_url}")
+        except Exception as e:
+            print(f"   ⚠️ Brief generation failed (scrape is unaffected): {e}")
+
     print(f"\n🏁 Scraped {len(results)} product(s).")
-    return {"results": results}
+    return {"results": results, "brief_url": brief_url}          # ← NEW
 
 
 if __name__ == "__main__":
